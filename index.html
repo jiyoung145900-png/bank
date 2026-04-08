@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>블랙록 리스트 생성기 (최적화 버전)</title>
+  <title>블랙록 리스트 생성기 (최종형)</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
     
@@ -17,6 +17,26 @@
       align-items: center;
       min-height: 100vh;
     }
+
+    /* 상단 컨트롤 바 */
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .row-btn {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 10px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: all 0.2s;
+    }
+
+    .row-btn:hover { background: rgba(255, 255, 255, 0.2); }
 
     .infographic {
       width: 100%;
@@ -37,35 +57,12 @@
       border-bottom: 2px solid #f59e0b;
     }
 
-    .logo {
-      font-size: 42px;
-      font-weight: 900;
-      letter-spacing: -2px;
-      color: white;
-    }
-
-    .main-title {
-      font-size: 28px;
-      font-weight: 900;
-      color: #f8fafc;
-      margin: 0;
-    }
-
+    .logo { font-size: 42px; font-weight: 900; letter-spacing: -2px; color: white; }
+    .main-title { font-size: 28px; font-weight: 900; color: #f8fafc; margin: 0; }
     .content { padding: 30px; }
 
-    table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-
-    th {
-      background: #1e2937;
-      color: #f59e0b;
-      padding: 15px;
-      border-bottom: 2px solid #f59e0b;
-    }
-
+    table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    th { background: #1e2937; color: #f59e0b; padding: 15px; border-bottom: 2px solid #f59e0b; }
     td {
       background: #111827;
       color: #e2e8f0;
@@ -78,28 +75,19 @@
 
     tr:nth-child(even) td { background: #161e2d; }
 
-    /* 핵심: Placeholder 스타일 (흐리게 표시) */
+    /* Placeholder logic */
     [contenteditable]:empty::before {
       content: attr(data-placeholder);
-      color: rgba(255, 255, 255, 0.15); /* 매우 흐리게 */
+      color: rgba(255, 255, 255, 0.15);
       position: absolute;
-      left: 50%;
-      top: 50%;
+      left: 50%; top: 50%;
       transform: translate(-50%, -50%);
       pointer-events: none;
       width: 100%;
-      display: block;
     }
 
-    /* 입력 중이거나 내용이 있으면 숨김 */
-    [contenteditable]:focus::before {
-      display: none;
-    }
-
-    /* 이미지 캡처 시 가이드 문구 강제 제거용 클래스 */
-    .hide-placeholder [contenteditable]:empty::before {
-      display: none !important;
-    }
+    [contenteditable]:focus::before { display: none; }
+    .hide-placeholder [contenteditable]:empty::before { display: none !important; }
 
     .download-btn {
       margin-top: 40px;
@@ -116,6 +104,11 @@
   </style>
 </head>
 <body>
+
+  <div class="controls">
+    <button class="row-btn" onclick="addRow()">➕ 한 줄 추가</button>
+    <button class="row-btn" onclick="removeRow()">➖ 한 줄 삭제</button>
+  </div>
 
   <div class="infographic" id="capture-area">
     <div class="header">
@@ -134,8 +127,7 @@
             <th width="20%">수익률</th>
           </tr>
         </thead>
-        <tbody id="tableBody">
-          </tbody>
+        <tbody id="tableBody"></tbody>
       </table>
     </div>
   </div>
@@ -144,42 +136,47 @@
 
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <script>
-    // 행 자동 생성 및 placeholder 설정
     const tableBody = document.getElementById('tableBody');
     const placeholders = ["00.00", "종목명 입력", "0,000", "0,000", "+0.0%"];
     
-    for(let i=0; i<10; i++) {
+    // 행 추가 함수
+    function addRow() {
       const tr = document.createElement('tr');
       placeholders.forEach(ph => {
         const td = document.createElement('td');
         td.contentEditable = "true";
         td.setAttribute('data-placeholder', ph);
+        // 엔터 입력 방지 이벤트 리스너
+        td.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            td.blur();
+          }
+        });
         tr.appendChild(td);
       });
       tableBody.appendChild(tr);
     }
 
-    // 엔터 입력 방지
-    document.addEventListener('keydown', (e) => {
-      if (e.target.contentEditable === 'true' && e.key === 'Enter') {
-        e.preventDefault();
-        e.target.blur();
+    // 행 삭제 함수 (최소 1줄 유지)
+    function removeRow() {
+      if (tableBody.rows.length > 1) {
+        tableBody.deleteRow(-1);
       }
-    });
+    }
 
-    // 다운로드 로직
+    // 초기 10개 행 생성
+    for(let i=0; i<10; i++) addRow();
+
+    // 이미지 다운로드
     async function downloadImage() {
       const btn = document.getElementById('saveBtn');
       const area = document.getElementById('capture-area');
-      
-      btn.innerText = "⏳ 처리 중...";
-      
-      // 1. 캡처 직전 placeholder 숨기기 모드 활성화
+      btn.innerText = "⏳ 고화질 변환 중...";
       area.classList.add('hide-placeholder');
 
       try {
         await document.fonts.ready;
-        
         setTimeout(() => {
           html2canvas(area, {
             scale: 3,
@@ -189,12 +186,10 @@
             link.download = `BlackRock_List_${new Date().getTime()}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
-            
-            // 2. 캡처 완료 후 다시 원래대로 복구
             area.classList.remove('hide-placeholder');
             btn.innerText = "📥 리스트 이미지로 저장하기";
           });
-        }, 100);
+        }, 150);
       } catch (err) {
         area.classList.remove('hide-placeholder');
         btn.innerText = "📥 리스트 이미지로 저장하기";
